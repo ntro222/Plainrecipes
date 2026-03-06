@@ -1,0 +1,118 @@
+head, body {
+    text-align: center;
+    font-family: "Helvetica Neue", Helvetica, Arial;
+    background-color: #f9f9f9;
+}
+
+#headingcontainer, #maincontainer {
+    max-width: 500px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+#recipeurl {
+    padding: 10px;
+    max-width: 400px;
+    min-width: 250px;
+    text-align: center;
+    font-size: 15px;
+    border: 1px solid #ccc;
+}
+
+#recipesubmit, #copypt {
+    padding: 7px;
+    min-width: 150px;
+    cursor: pointer;
+    background-color: #333;
+    color: white;
+    border: none;
+    margin-top: 10px;
+}
+
+#recipesubmit:hover, #copypt:hover {
+    background-color: #000;
+}
+
+#recipetext {
+    display: block;
+    text-align: left;
+    max-width: 700px;
+    margin: 30px auto;
+    background: #fff;
+    padding: 30px;
+    border: 1px solid #ddd;
+    line-height: 1.6;
+}
+
+.recipe-title {
+    font-size: 26px;
+    font-weight: bold;
+    border-bottom: 2px solid #333;
+    margin-bottom: 15px;
+    padding-bottom: 5px;
+}
+
+.section-head {
+    font-size: 20px;
+    font-weight: bold;
+    margin-top: 25px;
+    margin-bottom: 10px;
+    color: #d9534f;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.ingredient-item {
+    margin-left: 5px;
+    padding: 4px 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.instruction-item {
+    margin-bottom: 15px;
+    display: flex;
+    align-items: flex-start;
+}
+
+.step-num {
+    font-weight: bold;
+    margin-right: 10px;
+    color: #555;
+    min-width: 25px;
+}
+
+a {
+    color: gray;
+    text-decoration: none;
+}
+
+a:hover {
+    color: black;
+}
+
+/* enabled if device has less than 1gb ram - just removes styling changes */
+body.lite-mode {
+    background-color: #fff !important;
+}
+
+body.lite-mode #recipetext {
+    border: none !important;
+    padding: 10px !important;
+    margin: 10px 0 !important;
+    max-width: 100% !important;
+}
+
+body.lite-mode .section-head {
+    margin-top: 15px !important;
+    border-bottom: 1px solid #000;
+}
+
+body.lite-mode .recipe-title {
+    font-size: 20px !important;
+}
+
+body.lite-mode #recipesubmit, body.lite-mode #copypt {
+    background-color: #eee !important;
+    color: #000 !important;
+    border: 1px solid #000 !important;
+}
