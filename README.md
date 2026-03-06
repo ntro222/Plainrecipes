@@ -6,4 +6,4 @@ Plainrecipes was a project I made when I was tired of having to scroll through s
 
 ![Simple diagram showing how Plainrecipe's backend works.](https://i.ibb.co/SwSDBHWZ/How-It-Works.png)
 
-oh, and did i mention that it litterally works on my iPhone 4S with ios 6 stock safari? I tried to make it as compatible with old versions of HTML, CSS and JS as i could because old PC's and phones deserve a second life too.
+oh, and did I mention that it literally works on my iPhone 4S with ios 6 stock safari? I tried to make it as compatible with old versions of HTML, CSS and JS as I could because **old PC's and phones deserve a second life too.**
