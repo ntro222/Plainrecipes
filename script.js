@@ -1,89 +1,131 @@
 (function() {
-    var foodSpan = document.getElementById('randomfood');
+    const foodSpan = document.getElementById('randomfood');
     if (foodSpan) {
-        var xhr = new XMLHttpRequest();
-        xhr.open('GET', 'foods.txt', true);
-        xhr.onreadystatechange = function() {
-            if (xhr.readyState === 4 && xhr.status === 200) {
-                var f = xhr.responseText.split(',');
-                var res = f[Math.floor(Math.random() * f.length)];
-                foodSpan.innerText = res.replace(/^\s+|\s+$/g, '');
-            }
-        };
-        xhr.send();
+        fetch('foods.txt')
+            .then(r => r.text())
+            .then(t => {
+                const f = t.split(',').map(item => item.trim()).filter(item => item.length > 0);
+                if (f.length > 0) foodSpan.innerText = f[Math.floor(Math.random() * f.length)];
+            })
+            .catch(() => { foodSpan.innerText = "meal"; });
     }
 
-    if (window.location.pathname.indexOf('recipeviewer.html') !== -1) {
-        var container = document.getElementById('recipetext');
-        var u = "";
-        var query = window.location.search.substring(1).split('&');
-        for (var i = 0; i < query.length; i++) {
-            var pair = query[i].split('=');
-            if (pair[0] === 'url') u = decodeURIComponent(pair[1]);
-        }
-        if (!u) u = localStorage.getItem('lastURL');
+    const yearSpan = document.getElementById('year');
+    if (yearSpan) yearSpan.innerText = new Date().getFullYear();
 
-        if (u) {
-            container.innerText = "ATTEMPTING INSECURE PROXY FETCH...";
-            var x = new XMLHttpRequest();
-            var proxy = "http://api.allorigins.win/get?url=" + encodeURIComponent(u);
-            
-            x.open('GET', proxy, true);
-            x.onreadystatechange = function() {
-                if (x.readyState === 4) {
-                    if (x.status === 200) {
-                        var d = JSON.parse(x.responseText).contents;
-                        processRecipe(d);
-                    } else {
-                        container.innerText = "SSL/CONNECTION ERROR: YOUR 4S CANNOT REACH THE PROXY.";
-                    }
-                }
-            };
-            x.send();
+    if (window.location.pathname.includes('recipeviewer.html')) {
+        const container = document.getElementById('recipetext');
+        const linkSpan = document.getElementById('original-link');
+        const url = localStorage.getItem('lastURL');
+        const raw = localStorage.getItem('lastRecipe');
+
+        if (url && linkSpan) {
+            linkSpan.innerHTML = `Original Link: <a href="${url}" target="_blank">${url}</a>`;
+        }
+
+        if (raw && raw.includes('INGREDIENTS')) {
+            container.innerText = raw.replace(/[#*>\-]/g, '').replace(/[ ]{2,}/g, ' ').trim();
+        } else if (url) {
+            container.innerText = "Scraping recipe details...";
+            scrape(url);
         }
     }
 })();
 
-function processRecipe(html) {
-    var container = document.getElementById('recipetext');
-    var jsonM = html.match(/<script [^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi);
-    var r = null;
-    if (jsonM) {
-        for (var j = 0; j < jsonM.length; j++) {
+const btn = document.getElementById('recipesubmit');
+if (btn) {
+    btn.onclick = (e) => {
+        e.preventDefault();
+        const input = document.getElementById('recipeurl').value.trim();
+        if (!input) return;
+
+        if (input.startsWith('http')) {
+            localStorage.setItem('lastURL', input);
+            localStorage.removeItem('lastRecipe');
+            window.location.href = 'recipeviewer.html';
+        } else {
+            localStorage.setItem('lastRecipe', input);
+            localStorage.removeItem('lastURL');
+            window.location.href = 'recipeviewer.html';
+        }
+    };
+}
+
+async function scrape(target) {
+    const proxies = [
+        `https://corsproxy.io/?${encodeURIComponent(target)}`,
+        `https://api.allorigins.win/get?url=${encodeURIComponent(target)}`
+    ];
+
+    for (const p of proxies) {
+        try {
+            const res = await fetch(p);
+            let data = await res.text();
+            if (p.includes('allorigins')) data = JSON.parse(data).contents;
+            if (data) {
+                process(data);
+                return;
+            }
+        } catch (err) {
+            continue;
+        }
+    }
+    document.getElementById('recipetext').innerText = "Failed to scrape recipe.";
+}
+
+function process(html) {
+    const container = document.getElementById('recipetext');
+    const m = html.match(/<script [^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi);
+    let recipe = null;
+
+    if (m) {
+        for (const script of m) {
             try {
-                var s = jsonM[j].replace(/<script.*?>/gi, '').replace(/<\/script>/gi, '').replace(/^\s+|\s+$/g, '');
-                if (s.charAt(s.length - 1) === ';') s = s.slice(0, -1);
-                var data = JSON.parse(s);
-                if (data['@graph']) {
-                    for (var g = 0; g < data['@graph'].length; g++) {
-                        if (data['@graph'][g]['@type'] === 'Recipe') { r = data['@graph'][g]; break; }
-                    }
-                } else if (data['@type'] === 'Recipe') { r = data; }
-                if (r) break;
+                let s = script.replace(/<script.*?>/gi, '').replace(/<\/script>/gi, '').trim();
+                if (s.endsWith(';')) s = s.slice(0, -1);
+                const data = JSON.parse(s);
+                const found = findRecipe(data);
+                if (found) { recipe = found; break; }
             } catch (e) {}
         }
     }
-    if (r) {
-        var out = (r.name || "RECIPE").toUpperCase() + "\n\nINGREDIENTS:\n";
-        for (var k = 0; k < r.recipeIngredient.length; k++) out += "• " + r.recipeIngredient[k] + "\n";
-        out += "\nINSTRUCTIONS:\n";
-        var steps = r.recipeInstructions;
+
+    if (recipe) {
+        let text = `${(recipe.name || "RECIPE").toUpperCase()}\n\nINGREDIENTS:\n`;
+        (recipe.recipeIngredient || []).forEach(i => { text += `• ${i.trim()}\n`; });
+        
+        text += "\nINSTRUCTIONS:\n";
+        let steps = recipe.recipeInstructions || [];
         if (!Array.isArray(steps)) steps = [steps];
-        for (var l = 0; l < steps.length; l++) {
-            var v = (typeof steps[l] === 'string') ? steps[l] : (steps[l].text || "");
-            out += (l + 1) + ". " + v + "\n\n";
+        steps.forEach((s, index) => {
+            const val = (typeof s === 'string') ? s : (s.text || s.name || "");
+            if (val.trim()) text += `${index + 1}. ${val.replace(/\s+/g, ' ').trim()}\n\n`;
+        });
+
+        const notes = html.match(/id="recipe[^"]*notes"[^>]*>([\s\S]*?)<\/div>/i);
+        if (notes && notes[1]) {
+            text += `NOTES:\n${notes[1].replace(/<[^>]*>?/gm, '').replace(/\s+/g, ' ').trim()}`;
         }
-        container.innerText = out;
-        localStorage.setItem('lastRecipe', out);
+
+        container.innerText = text.replace(/[#*>\-]/g, '').trim();
+        localStorage.setItem('lastRecipe', text);
     }
 }
 
-var btn = document.getElementById('recipesubmit');
-if (btn) {
-    btn.onclick = function() {
-        var val = document.getElementById('recipeurl').value.replace(/^\s+|\s+$/g, '');
-        localStorage.setItem('lastURL', val);
-        window.location.href = 'recipeviewer.html?url=' + encodeURIComponent(val);
-        return false;
-    };
+function findRecipe(obj) {
+    if (!obj || typeof obj !== 'object') return null;
+    if (obj['@type'] === 'Recipe' || (Array.isArray(obj['@type']) && obj['@type'].includes('Recipe'))) return obj;
+    if (obj['@graph']) return findRecipe(obj['@graph']);
+    if (Array.isArray(obj)) {
+        for (const item of obj) {
+            const f = findRecipe(item);
+            if (f) return f;
+        }
+    } else {
+        for (const key in obj) {
+            const f = findRecipe(obj[key]);
+            if (f) return f;
+        }
+    }
+    return null;
 }
