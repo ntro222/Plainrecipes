@@ -6,13 +6,13 @@
         xhr.onreadystatechange = function() {
             if (xhr.readyState === 4 && xhr.status === 200) {
                 var foods = xhr.responseText.split(',');
-                var cleanFoods = [];
+                var clean = [];
                 for (var i = 0; i < foods.length; i++) {
                     var f = foods[i].replace(/^\s+|\s+$/g, '');
-                    if (f.length > 0) cleanFoods.push(f);
+                    if (f.length > 0) clean.push(f);
                 }
-                if (cleanFoods.length > 0) {
-                    foodSpan.innerText = cleanFoods[Math.floor(Math.random() * cleanFoods.length)];
+                if (clean.length > 0) {
+                    foodSpan.innerText = clean[Math.floor(Math.random() * clean.length)];
                 }
             }
         };
@@ -22,10 +22,9 @@
     var yearSpan = document.getElementById('year');
     if (yearSpan) yearSpan.innerText = new Date().getFullYear();
 
-    // VIEWER LOGIC
     if (window.location.pathname.indexOf('recipeviewer.html') !== -1) {
-        var raw = localStorage.getItem('lastRecipe');
         var url = localStorage.getItem('lastURL');
+        var raw = localStorage.getItem('lastRecipe');
         var container = document.getElementById('recipetext');
         var linkSpan = document.getElementById('original-link');
 
@@ -33,14 +32,12 @@
             linkSpan.innerHTML = '<a href="' + url + '" target="_blank">' + url + '</a>';
         }
 
-        if (raw) {
-            // Check if the "recipe" is actually just the URL (this happens if scraper hasn't run)
-            if (raw.indexOf('http') === 0 && raw.indexOf('\n') === -1) {
-                container.innerText = "Scraping recipe... please wait.";
-            } else {
-                var finalClean = raw.replace(/[#*>\-]/g, '').replace(/[ ]{2,}/g, ' ');
-                container.innerText = finalClean;
-            }
+        if (raw && raw.indexOf('INGREDIENTS') !== -1) {
+            var finalClean = raw.replace(/[#*>\-]/g, '').replace(/[ ]{2,}/g, ' ');
+            container.innerText = finalClean;
+        } else if (url) {
+            container.innerText = "Scraping recipe... (iOS 6 Legacy Mode)";
+            tryProxy(0, url);
         }
     }
 })();
@@ -55,36 +52,35 @@ if (btn) {
 
         if (input.indexOf('http') === 0) {
             localStorage.setItem('lastURL', input);
-            localStorage.setItem('lastRecipe', "Scraping..."); // Reset to prevent old recipe showing
-            var v = window.open('recipeviewer.html', '_blank');
-            var proxies = ["https://corsproxy.io/?", "https://api.allorigins.win/get?url="];
-            tryProxy(0, input, v, proxies);
+            localStorage.removeItem('lastRecipe');
+            window.location.href = 'recipeviewer.html';
         } else {
             localStorage.setItem('lastRecipe', input);
             localStorage.removeItem('lastURL');
-            window.open('recipeviewer.html', '_blank');
+            window.location.href = 'recipeviewer.html';
         }
         return false;
     };
 }
 
-function tryProxy(index, targetUrl, win, proxyList) {
-    if (index >= proxyList.length) {
-        if (win) win.document.getElementById('recipetext').innerText = "Failed to load recipe.";
+function tryProxy(index, targetUrl) {
+    var proxies = ["https://corsproxy.io/?", "https://api.allorigins.win/get?url="];
+    if (index >= proxies.length) {
+        document.getElementById('recipetext').innerText = "Error: Scraper failed.";
         return;
     }
     var xhr = new XMLHttpRequest();
-    xhr.open('GET', proxyList[index] + encodeURIComponent(targetUrl), true);
+    xhr.open('GET', proxies[index] + encodeURIComponent(targetUrl), true);
     xhr.onreadystatechange = function() {
         if (xhr.readyState === 4) {
             if (xhr.status === 200) {
                 var data = xhr.responseText;
-                if (proxyList[index].indexOf('allorigins') !== -1) {
+                if (proxies[index].indexOf('allorigins') !== -1) {
                     try { data = JSON.parse(data).contents; } catch(e) {}
                 }
-                process(data, win);
+                process(data);
             } else {
-                tryProxy(index + 1, targetUrl, win, proxyList);
+                tryProxy(index + 1, targetUrl);
             }
         }
     };
@@ -97,17 +93,15 @@ function decodeText(h) {
     return t.value.replace(/&quot;/g, '"').replace(/&#39;/g, "'");
 }
 
-function process(html, win) {
+function process(html) {
     var d = null;
     var m = html.match(/<script [^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi);
     if (m) {
         for (var i = 0; i < m.length; i++) {
             try {
-                var str = m[i].replace(/<script.*?>/gi, '').replace(/<\/script>/gi, '');
-                str = str.replace(/^\s+|\s+$/g, '');
+                var str = m[i].replace(/<script.*?>/gi, '').replace(/<\/script>/gi, '').replace(/^\s+|\s+$/g, '');
                 if (str.charAt(str.length - 1) === ';') str = str.slice(0, -1);
-                var parsed = JSON.parse(str);
-                d = findR(parsed);
+                d = findR(JSON.parse(str));
                 if (d) break;
             } catch (err) {}
         }
@@ -145,10 +139,7 @@ function process(html, win) {
         }
 
         localStorage.setItem('lastRecipe', text);
-        // Force the child window to refresh to show the new text
-        if (win) {
-            win.location.reload();
-        }
+        document.getElementById('recipetext').innerText = text.replace(/[#*>\-]/g, '').replace(/[ ]{2,}/g, ' ');
     }
 }
 
