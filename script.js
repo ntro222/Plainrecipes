@@ -4,7 +4,7 @@
         fetch('foods.txt')
             .then(r => r.text())
             .then(t => {
-                const f = t.split(',').map(item => item.trim()).filter(item => item.length > 0);
+                const f = t.split(',').map(i => i.trim()).filter(i => i.length > 0);
                 if (f.length > 0) foodSpan.innerText = f[Math.floor(Math.random() * f.length)];
             })
             .catch(() => { foodSpan.innerText = "meal"; });
@@ -23,14 +23,20 @@
             linkSpan.innerHTML = `Original Link: <a href="${url}" target="_blank">${url}</a>`;
         }
 
-        if (raw && raw.includes('INGREDIENTS')) {
+        if (raw && raw.includes('INGREDIENTS') && raw.length > 100) {
             container.innerText = raw.replace(/[#*>\-]/g, '').replace(/[ ]{2,}/g, ' ').trim();
         } else if (url) {
-            container.innerText = "Scraping recipe details...";
+            container.innerText = "Scraping full recipe details...";
             scrape(url);
         }
     }
 })();
+
+function decode(html) {
+    const txt = document.createElement("textarea");
+    txt.innerHTML = html;
+    return txt.value.replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&');
+}
 
 const btn = document.getElementById('recipesubmit');
 if (btn) {
@@ -41,7 +47,7 @@ if (btn) {
 
         if (input.startsWith('http')) {
             localStorage.setItem('lastURL', input);
-            localStorage.removeItem('lastRecipe');
+            localStorage.setItem('lastRecipe', '');
             window.location.href = 'recipeviewer.html';
         } else {
             localStorage.setItem('lastRecipe', input);
@@ -66,9 +72,7 @@ async function scrape(target) {
                 process(data);
                 return;
             }
-        } catch (err) {
-            continue;
-        }
+        } catch (err) { continue; }
     }
     document.getElementById('recipetext').innerText = "Failed to scrape recipe.";
 }
@@ -91,20 +95,31 @@ function process(html) {
     }
 
     if (recipe) {
-        let text = `${(recipe.name || "RECIPE").toUpperCase()}\n\nINGREDIENTS:\n`;
-        (recipe.recipeIngredient || []).forEach(i => { text += `• ${i.trim()}\n`; });
+        let text = `${decode(recipe.name || "RECIPE").toUpperCase()}\n\nINGREDIENTS:\n`;
+        (recipe.recipeIngredient || []).forEach(i => { text += `• ${decode(i).trim()}\n`; });
         
         text += "\nINSTRUCTIONS:\n";
         let steps = recipe.recipeInstructions || [];
         if (!Array.isArray(steps)) steps = [steps];
-        steps.forEach((s, index) => {
-            const val = (typeof s === 'string') ? s : (s.text || s.name || "");
-            if (val.trim()) text += `${index + 1}. ${val.replace(/\s+/g, ' ').trim()}\n\n`;
+        
+        let count = 1;
+        steps.forEach(s => {
+            if (typeof s === 'string') {
+                text += `${count++}. ${decode(s).trim()}\n\n`;
+            } else if (s.itemListElement) {
+                s.itemListElement.forEach(item => {
+                    const stepText = item.text || item.name || "";
+                    if (stepText) text += `${count++}. ${decode(stepText).trim()}\n\n`;
+                });
+            } else {
+                const stepText = s.text || s.name || "";
+                if (stepText) text += `${count++}. ${decode(stepText).trim()}\n\n`;
+            }
         });
 
         const notes = html.match(/id="recipe[^"]*notes"[^>]*>([\s\S]*?)<\/div>/i);
         if (notes && notes[1]) {
-            text += `NOTES:\n${notes[1].replace(/<[^>]*>?/gm, '').replace(/\s+/g, ' ').trim()}`;
+            text += `\nNOTES:\n${decode(notes[1]).replace(/<[^>]*>?/gm, '').replace(/\s+/g, ' ').trim()}`;
         }
 
         container.innerText = text.replace(/[#*>\-]/g, '').trim();
