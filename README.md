@@ -2,7 +2,7 @@
 ## A free, lightweight website to de-bloat a recipe.
 Plainrecipes was a project I made when I was tired of having to scroll through some random guy's whole life story and dodge ads on websites just to find the *actual* recipe. So, I made this!
 
-In fact, so lightweight you could fit 134 copies of this website on a standard size 3.5in floppy disk!
+**In fact, so lightweight you could fit 134 copies of this website on a standard size 3.5in floppy disk!**
 
 ## How does it work? (for all you nerds out there)
 
