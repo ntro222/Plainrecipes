@@ -1,6 +1,7 @@
 **NON-COMMERCIAL LICENSE**
 
 **Copyright (c) 2026 Nitrosquared (Eli McDonald)**
+
 **CREDIT REQUIREMENT:** Any use, redistribution, or modification of this code must include 
 prominent credit to Nitrosquared and a link to the original source.
 
